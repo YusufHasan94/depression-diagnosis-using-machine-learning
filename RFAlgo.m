@@ -32,57 +32,46 @@ X_test = X(idx(train_samples+1:end), :);
 y_train = y(idx(1:train_samples), :);
 y_test = y(idx(train_samples+1:end), :);
 
-% Load and preprocess the data (assuming X_train and X_test are 2D matrices)
 
-inputSize = size(X_train, 2);  % Input size for 1D CNN
+numTrees = 100;  % Number of trees in the forest
+numFeatures = size(X_train, 2);  % Number of features
 
-% Define the 1D CNN architecture
-layers = [
-    sequenceInputLayer(inputSize)
-    convolution1dLayer(3, 16, 'Padding', 'same')
-    batchNormalizationLayer
-    reluLayer
-    maxPooling1dLayer(2, 'Stride', 2)
-    convolution1dLayer(3, 32, 'Padding', 'same')
-    batchNormalizationLayer
-    reluLayer
-    maxPooling1dLayer(2, 'Stride', 2)
-    fullyConnectedLayer(64)
-    reluLayer
-    fullyConnectedLayer(numel(unique(y_train)))
-    softmaxLayer
-    classificationLayer
-];
+% Initialize cell arrays to store the trees and their predictions
+trees = cell(numTrees, 1);
+y_pred_random_forest = zeros(size(X_test, 1), numTrees);
 
-% Set training options
-options = trainingOptions('sgdm', 'MaxEpochs', 10, 'Verbose', true, ...
-    'Plots', 'training-progress');
+for i = 1:numTrees
+    % Bootstrap sampling with replacement for creating different subsets of the data
+    idx = datasample(1:size(X_train, 1), size(X_train, 1));
+    X_train_subset = X_train(idx, :);
+    y_train_subset = y_train(idx);
+    
+    % Train individual decision trees
+    tree = fitctree(X_train_subset, y_train_subset, 'NumVariablesToSample', numFeatures);
+    
+    % Store the trained tree
+    trees{i} = tree;
+    
+    % Make predictions on the test set for each tree
+    y_pred_random_forest(:, i) = predict(tree, X_test);
+end
 
-% Convert the labels to categorical
-y_train_categorical = categorical(y_train);
-y_test_categorical = categorical(y_test);
-
-% Train the 1D CNN model
-net = trainNetwork(X_train, y_train_categorical, layers, options);
-
-% Make predictions on the test set
-y_pred_cnn = classify(net, X_test);
-
-% Convert predicted labels to numeric values for comparison
-y_pred_cnn_numeric = grp2idx(y_pred_cnn);
+% Perform majority voting for the ensemble's predictions
+y_pred_majority = mode(y_pred_random_forest, 2);
 
 % Model evaluation
-accuracy_cnn = sum(y_pred_cnn_numeric == y_test) / numel(y_test);
-fprintf('1D CNN Accuracy is %.2f\n', accuracy_cnn * 100);
+accuracy_random_forest = sum(y_pred_majority == y_test) / numel(y_test);
+fprintf('Random Forest Accuracy is %.2f\n', accuracy_random_forest * 100);
 
 % Confusion matrix and visualization
-C_cnn = confusionmat(y_test, y_pred_cnn_numeric);
-fprintf('1D CNN Confusion matrix:\n');
-disp(C_cnn);
+C_random_forest = confusionmat(y_test, y_pred_majority);
+fprintf('Random Forest Confusion matrix:\n');
+disp(C_random_forest);
 
 % Plot confusion matrix
 figure;
-confusionchart(y_test, y_pred_cnn_numeric);
-title('1D CNN Confusion Matrix');
+confusionchart(y_test, y_pred_majority);
+title('Random Forest Confusion Matrix');
+
 
 

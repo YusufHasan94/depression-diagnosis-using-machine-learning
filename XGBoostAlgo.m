@@ -10,7 +10,7 @@ mood_data = data(data.main_disorder == "Mood disorder", :);
 
 specific_disoders_encoding = grp2idx(mood_data.specific_disorder);
 features = table2array(mood_data(:, setdiff(mood_data.Properties.VariableNames,...
-    {'main_disorder', 'specific_disorder'})));
+   {'main_disorder', 'specific_disorder'})));
 
 delta_cols = mood_data(:, contains(mood_data.Properties.VariableNames, 'delta')).Variables;
 beta_cols = mood_data(:, contains(mood_data.Properties.VariableNames, 'beta')).Variables;
@@ -18,11 +18,6 @@ theta_cols = mood_data(:, contains(mood_data.Properties.VariableNames, 'theta'))
 alpha_cols = mood_data(:, contains(mood_data.Properties.VariableNames, 'alpha')).Variables;
 
 req_features = [delta_cols, beta_cols, theta_cols, alpha_cols];
-
-figure;
-bar([size(delta_cols), size(beta_cols), size(theta_cols), size(alpha_cols)]);
-xticklabels({'delta', 'beta', 'theta', 'alpha'});
-
 X = zscore(req_features);
 y = specific_disoders_encoding;
 
@@ -37,22 +32,30 @@ X_test = X(idx(train_samples+1:end), :);
 y_train = y(idx(1:train_samples), :);
 y_test = y(idx(train_samples+1:end), :);
 
-% K-Nearest Neighbors (KNN) classifier
-knn_model = fitcknn(X_train, y_train, 'NumNeighbors', 5);
-y_pred = predict(knn_model, X_test);
+
+% Train the TreeBagger model
+numTrees = 100;
+model = TreeBagger(numTrees, X_train, y_train, 'Method', 'classification');
+
+% Make predictions on the test set
+y_pred_treebagger = predict(model, X_test);
+
+% Convert predicted labels to integers for comparison
+y_pred_treebagger = str2double(y_pred_treebagger);
 
 % Model evaluation
-accuracy = sum(y_pred == y_test) / numel(y_test);
-fprintf('Accuracy is %.2f\n', accuracy*100);
+accuracy_treebagger = sum(y_pred_treebagger == y_test) / numel(y_test);
+fprintf('TreeBagger Accuracy is %.2f\n', accuracy_treebagger * 100);
 
-% Classification report
-C = confusionmat(y_test, y_pred);
-fprintf('Confusion matrix:\n');
-disp(C);
+% Confusion matrix and visualization
+C_treebagger = confusionmat(y_test, y_pred_treebagger);
+fprintf('TreeBagger Confusion matrix:\n');
+disp(C_treebagger);
 
-% Visualization of Confusion Matrix
+% Plot confusion matrix
 figure;
-confusionchart(y_test, y_pred);
-%confusionchart(y_test, y_pred, 'RowSummary', 'row-normalized', 'ColumnSummary', 'column-normalized');
-title('Confusion Matrix');
+confusionchart(y_test, y_pred_treebagger);
+title('TreeBagger Confusion Matrix');
+
+
 

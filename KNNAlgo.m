@@ -34,7 +34,7 @@ y_train = y(idx(1:train_samples), :);
 y_test = y(idx(train_samples+1:end), :);
 
 % K-Nearest Neighbors (KNN) classifier
-knn_model = fitcknn(X_train, y_train, 'NumNeighbors', 9);
+knn_model = fitcknn(X_train, y_train, 'NumNeighbors', 7);
 y_pred = predict(knn_model, X_test);
 
 % Model evaluation
