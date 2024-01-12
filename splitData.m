@@ -1,11 +1,18 @@
 data = readtable('EEG.machinelearing_data_BRMH.csv');
-data(:, {'no_', 'age', 'eeg_date', 'education', 'IQ', 'sex'}) = [];
+%data(:, {'no_', 'age', 'eeg_date', 'education', 'IQ', 'sex'}) = [];
 data.Properties.VariableNames{'main_disorder'} = 'main_disorder';
 data.Properties.VariableNames{'specific_disorder'} = 'specific_disorder';
 features_with_null = data.Properties.VariableNames(sum(ismissing(data), 1) > 0);
-data(:, features_with_null) = [];
+%data(:, features_with_null) = [];
 main_disorders = unique(data.main_disorder);
 specific_disoders = unique(data.specific_disorder);
 mood_data = data(strcmp(data.specific_disorder, 'Depressive disorder') | ...
                  strcmp(data.specific_disorder, 'Healthy control'), :);
 specific_disoders_encoding = grp2idx(mood_data.specific_disorder);
+
+selected_data = data(strcmp(data.specific_disorder, 'Depressive disorder') | ...
+                 strcmp(data.specific_disorder, 'Healthy control') | ...
+                 (data.AB_A_delta_a_FP1)| ...
+                 (data.AB_B_theta_a_FP1)| ...
+                 (data.AB_C_alpha_a_FP1)| ...
+                 (data.AB_D_beta_a_FP1), :);
