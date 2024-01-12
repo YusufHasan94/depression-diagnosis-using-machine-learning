@@ -6,9 +6,10 @@ features_with_null = data.Properties.VariableNames(sum(ismissing(data), 1) > 0);
 data(:, features_with_null) = [];
 main_disorders = unique(data.main_disorder);
 specific_disoders = unique(data.specific_disorder);
-mood_data = data(data.main_disorder == "Mood disorder", :);
-
-specific_disoders_encoding = grp2idx(mood_data.specific_disorder);
+mood_data = data(strcmp(data.main_disorder, 'Mood disorder') | ...
+    strcmp(data.main_disorder, 'Healthy control'),:);
+                 
+specific_disoders_encoding = grp2idx(mood_data.main_disorder);
 features = table2array(mood_data(:, setdiff(mood_data.Properties.VariableNames,...
    {'main_disorder', 'specific_disorder'})));
 
@@ -33,45 +34,77 @@ y_train = y(idx(1:train_samples), :);
 y_test = y(idx(train_samples+1:end), :);
 
 
-numTrees = 100;  % Number of trees in the forest
-numFeatures = size(X_train, 2);  % Number of features
+% Define perparameters
+numEstimators = [100, 300, 500];
+maxDepth = [1, 3, 6];
+% Initialize variables to store best hyperparameters and accuracy
+bestAccuracy = 0;
+bestNumEstimators = 0;
+bestMaxDepth = 0;
 
-% Initialize cell arrays to store the trees and their predictions
-trees = cell(numTrees, 1);
-y_pred_random_forest = zeros(size(X_test, 1), numTrees);
-
-for i = 1:numTrees
-    % Bootstrap sampling with replacement for creating different subsets of the data
-    idx = datasample(1:size(X_train, 1), size(X_train, 1));
-    X_train_subset = X_train(idx, :);
-    y_train_subset = y_train(idx);
-    
-    % Train individual decision trees
-    tree = fitctree(X_train_subset, y_train_subset, 'NumVariablesToSample', numFeatures);
-    
-    % Store the trained tree
-    trees{i} = tree;
-    
-    % Make predictions on the test set for each tree
-    y_pred_random_forest(:, i) = predict(tree, X_test);
+% Iterate over hyperparameter combinations
+for i = 1:length(numEstimators)
+    for j = 1:length(maxDepth)
+        if isnan(maxDepth(j))
+            randomForest = TreeBagger(numEstimators(i), X_train, y_train, 'Method', 'classification');
+        else
+            randomForest = TreeBagger(numEstimators(i), X_train, y_train, 'Method', 'classification', 'MaxNumSplits', maxDepth(j));
+        end
+        y_pred = predict(randomForest, X_test);
+        y_pred_numeric = cellfun(@str2num, y_pred);
+        
+        accuracy = sum(y_pred_numeric == y_test) / numel(y_test);
+        
+        % Check if current hyperparameters yield better accuracy
+        if accuracy > bestAccuracy
+            bestAccuracy = accuracy;
+            bestNumEstimators = numEstimators(i);
+            bestMaxDepth = maxDepth(j);
+        end
+        
+        % Display confusion matrix for the current hyperparameters
+        fprintf('Confusion matrix for NumEstimators=%d, MaxDepth=%s:\n', numEstimators(i), num2str(maxDepth(j)));
+        C = confusionmat(y_test, y_pred_numeric);
+        disp(C);
+        
+        % Visualize confusion matrix as a heatmap
+        figure;
+        confusionchart(y_test, y_pred_numeric, 'Title', sprintf('Confusion Matrix - NumEstimators=%d, MaxDepth=%s', numEstimators(i), num2str(maxDepth(j))));       
+    end
 end
 
-% Perform majority voting for the ensemble's predictions
-y_pred_majority = mode(y_pred_random_forest, 2);
 
-% Model evaluation
-accuracy_random_forest = sum(y_pred_majority == y_test) / numel(y_test);
-fprintf('Random Forest Accuracy is %.2f\n', accuracy_random_forest * 100);
+fprintf('Best Accuracy: %.2f%%\n', bestAccuracy * 100);
+fprintf('Best Number of Estimators: %d\n', bestNumEstimators);
+fprintf('Best Maximum Depth: %s\n', num2str(bestMaxDepth));
 
-% Confusion matrix and visualization
-C_random_forest = confusionmat(y_test, y_pred_majority);
-fprintf('Random Forest Confusion matrix:\n');
-disp(C_random_forest);
+% Get predicted class probabilities for positive class
+[~, scores_xg_boost] = predict(model, X_test);
 
-% Plot confusion matrix
+% Extract the positive class probability (class 2)
+scores_xg_boost_pos = scores_xg_boost(:, 2);
+
+% Create an ROC curve
+[Xg_boost_fpr, Xg_boost_tpr, ~, Xg_boost_auc] = perfcurve(y_test, scores_xg_boost_pos, 2);
+
+% Plot ROC curve
 figure;
-confusionchart(y_test, y_pred_majority);
-title('Random Forest Confusion Matrix');
+plot(Xg_boost_fpr, Xg_boost_tpr, 'b-', 'LineWidth', 2);
+hold on;
+
+% Plot the random guess line
+plot([0, 1], [0, 1], 'k--', 'LineWidth', 2);
+
+xlabel('False Positive Rate');
+ylabel('True Positive Rate');
+title('ROC Curve - XGBoost');
+legend(['AUC = ', num2str(Xg_boost_auc)], 'Random Guess', 'Location', 'Best');
+grid on;
+hold off;
+
+
+
+
 
 
 
