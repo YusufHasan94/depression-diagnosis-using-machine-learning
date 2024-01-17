@@ -32,13 +32,10 @@ X_test = X(idx(train_samples+1:end), :);
 y_train = y(idx(1:train_samples), :);
 y_test = y(idx(train_samples+1:end), :);
 
-% Train the TreeBagger model
-numTrees = 100;
+numTrees = 150;
 model = TreeBagger(numTrees, X_train, y_train, 'Method', 'classification');
 
 y_pred_xg_boost = predict(model, X_test);
-
-% Convert predicted labels to integers for comparison
 y_pred_xg_boost = str2double(y_pred_xg_boost);
 
 % Model evaluation
@@ -54,7 +51,6 @@ disp(C_xg_boost);
 figure;
 confusionchart(y_test, y_pred_xg_boost);
 title('XGBoost Confusion Matrix');
-
 
 % Get predicted class probabilities for positive class
 [~, scores_xg_boost] = predict(model, X_test);

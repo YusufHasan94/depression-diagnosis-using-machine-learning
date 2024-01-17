@@ -35,7 +35,7 @@ y_test = y(idx(train_samples+1:end), :);
 
 
 % Define perparameters
-numEstimators = [100, 300, 500];
+numEstimators = [100,150,170];
 maxDepth = [1, 3, 6];
 % Initialize variables to store best hyperparameters and accuracy
 bestAccuracy = 0;
@@ -69,7 +69,8 @@ for i = 1:length(numEstimators)
         
         % Visualize confusion matrix as a heatmap
         figure;
-        confusionchart(y_test, y_pred_numeric, 'Title', sprintf('Confusion Matrix - NumEstimators=%d, MaxDepth=%s', numEstimators(i), num2str(maxDepth(j))));       
+        %confusionchart(y_test, y_pred_numeric, 'Title', sprintf('Confusion Matrix - NumEstimators=%d, MaxDepth=%s', numEstimators(i), num2str(maxDepth(j)))); 
+        confusionchart(y_test, y_pred_numeric);       
     end
 end
 
@@ -79,17 +80,17 @@ fprintf('Best Number of Estimators: %d\n', bestNumEstimators);
 fprintf('Best Maximum Depth: %s\n', num2str(bestMaxDepth));
 
 % Get predicted class probabilities for positive class
-[~, scores_xg_boost] = predict(model, X_test);
+[~, scores_RF] = predict(randomForest, X_test);
 
 % Extract the positive class probability (class 2)
-scores_xg_boost_pos = scores_xg_boost(:, 2);
+scores_RF_pos = scores_RF(:, 2);
 
 % Create an ROC curve
-[Xg_boost_fpr, Xg_boost_tpr, ~, Xg_boost_auc] = perfcurve(y_test, scores_xg_boost_pos, 2);
+[RF_fpr, RF_tpr, ~, RF_auc] = perfcurve(y_test, scores_RF_pos, 2);
 
 % Plot ROC curve
 figure;
-plot(Xg_boost_fpr, Xg_boost_tpr, 'b-', 'LineWidth', 2);
+plot(RF_fpr, RF_tpr, 'b-', 'LineWidth', 2);
 hold on;
 
 % Plot the random guess line
@@ -97,8 +98,8 @@ plot([0, 1], [0, 1], 'k--', 'LineWidth', 2);
 
 xlabel('False Positive Rate');
 ylabel('True Positive Rate');
-title('ROC Curve - XGBoost');
-legend(['AUC = ', num2str(Xg_boost_auc)], 'Random Guess', 'Location', 'Best');
+title('ROC Curve - Random Forest');
+legend(['AUC = ', num2str(RF_auc)], 'Random Guess', 'Location', 'Best');
 grid on;
 hold off;
 
